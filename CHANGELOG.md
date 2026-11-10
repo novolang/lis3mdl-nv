@@ -26,6 +26,7 @@ I2C or an SPI bus.
 - Hardware verification: NOT VERIFIED.  No board carries a LIS3MDL.
 - The device program builds for the nRF52840 DK and the nRF54LM20 DK, whose
   board packages answer for I2C and SPI as absent hardware: on those images
-  `begin` answers `false` until the boards drive the buses.
+  `begin` answers `false` until the boards drive the buses.  The gap is tracked by
+  `features/embedded-devex/nordic-twim-i2c-driver.md`.
 - The data sheet's INT_CFG default and the reserved bits of the register
   were not exercised: the driver does not write INT_CFG.
