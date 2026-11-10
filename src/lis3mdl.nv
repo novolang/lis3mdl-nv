@@ -73,14 +73,14 @@ use dev_mag.{ MagNanoT, Magnetometer }
 use dev_id.{ DeviceId, Identifiable }
 
 // The registers.
-let WHO_AM_I    = 0x0F
-let CTRL_REG1   = 0x20
-let CTRL_REG2   = 0x21
-let CTRL_REG3   = 0x22
-let CTRL_REG4   = 0x23
-let CTRL_REG5   = 0x24
-let STATUS_REG  = 0x27
-let OUT_X_L     = 0x28
+let WHO_AM_I   = 0x0F
+let CTRL_REG1  = 0x20
+let CTRL_REG2  = 0x21
+let CTRL_REG3  = 0x22
+let CTRL_REG4  = 0x23
+let CTRL_REG5  = 0x24
+let STATUS_REG = 0x27
+let OUT_X_L    = 0x28
 
 // WHO_AM_I's value.
 let ID_LIS3MDL = 0x3D
@@ -93,14 +93,14 @@ let I2C_MULTI = 0x80
 
 // CTRL_REG1: the performance mode of X and Y, the rate bits, FAST_ODR and
 // the self-test enable.
-let CTRL1_OM_MASK = 0x60
-let CTRL1_DO_MASK = 0x1C
+let CTRL1_OM_MASK  = 0x60
+let CTRL1_DO_MASK  = 0x1C
 let CTRL1_FAST_ODR = 0x02
-let CTRL1_ST = 0x01
+let CTRL1_ST       = 0x01
 // CTRL_REG2: the full-scale bits.
 let CTRL2_FS_MASK = 0x60
 // CTRL_REG3: low-power mode and the operating mode.
-let CTRL3_LP = 0x20
+let CTRL3_LP      = 0x20
 let CTRL3_MD_MASK = 0x03
 // CTRL_REG4: the performance mode of Z.
 let CTRL4_OMZ_MASK = 0x0C
@@ -115,12 +115,12 @@ let NT_PER_GAUSS = 100000
 
 // The rate `start` sets, 10 Hz (DO 100), and the full scale and the
 // performance mode: ±4 gauss, ultra-high performance.
-let DO_10_HZ = 4
+let DO_10_HZ      = 4
 let OM_ULTRA_HIGH = 3
 
 // The clocks `setup` asks for: I2C fast mode, and SPI at 4 MHz in mode 3.
-let I2C_HZ = 400000
-let SPI_HZ = 4000000
+let I2C_HZ   = 400000
+let SPI_HZ   = 4000000
 let SPI_MODE = 3
 
 // The most polls of the data-ready flag a self-test makes for one sample:
@@ -131,8 +131,8 @@ let SELF_TEST_POLLS = 4000
 // value): 1 to 3 gauss on X and Y, 0.1 to 1 gauss on Z.
 let ST_XY_MIN = 100000
 let ST_XY_MAX = 300000
-let ST_Z_MIN = 10000
-let ST_Z_MAX = 100000
+let ST_Z_MIN  = 10000
+let ST_Z_MAX  = 100000
 
 // The full scale of the part (Table 25).
 pub @value
@@ -205,8 +205,8 @@ pub fn i2c_write<B: I2cBus>(bus: B, w: DeviceWiring, reg: Int, v: Int) -> Bool [
 // Reads `n` registers from `reg` into `dst` in one SPI transaction:
 // whether it ran, which is whether the wiring has a chip select.  An
 // absent part reads 0xFF, which the callers check for.
-pub fn spi_read_into<B: SpiBus, G: GpioOut>(bus: B, gpio: G, w: DeviceWiring, reg: Int,
-                                            n: Int, var dst: DevBytes) -> Bool [hw]
+pub fn spi_read_into<B: SpiBus, G: GpioOut>(bus: B, gpio: G, w: DeviceWiring, reg: Int, n: Int,
+                                            var dst: DevBytes) -> Bool [hw]
     var tx: DevBytes = Vec.new()
     let _ = tx.push(spi_cmd_of(reg, n) as u8)
     dev_bus.wiring_spi_exchange_into(bus, gpio, w, tx, n, var dst)
@@ -325,9 +325,9 @@ pub fn perf_of_ctrl1(v: Int) -> Lis3mdlPerf
 // bits 6:5 of CTRL_REG1 and OMZ in bits 3:2 of CTRL_REG4.
 pub fn om_of_perf(m: Lis3mdlPerf) -> Int
     match m
-        Lis3mdlLowPower => 0
-        Lis3mdlMedium   => 1
-        Lis3mdlHigh     => 2
+        Lis3mdlLowPower  => 0
+        Lis3mdlMedium    => 1
+        Lis3mdlHigh      => 2
         Lis3mdlUltraHigh => 3
 
 // The operating mode a CTRL_REG3 byte's MD bits select: 00 continuous,
@@ -423,7 +423,9 @@ pub fn sample_read<P: Lis3mdlPort>(p: P) -> ?MagNanoT [hw]
     if not p.read_regs(CTRL_REG2, 13, var b)
         return None
     let r = range_of_ctrl2(b[0] as Int)
-    Some(MagNanoT { x: nano_t_of(axis(b, 7), r), y: nano_t_of(axis(b, 9), r), z: nano_t_of(axis(b, 11), r) })
+    Some(MagNanoT { x: nano_t_of(axis(b, 7), r),
+        y: nano_t_of(axis(b, 9), r),
+        z: nano_t_of(axis(b, 11), r) })
 
 // Whether a new sample of all three axes has completed since the last
 // read: STATUS_REG's ZYXDA.

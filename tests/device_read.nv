@@ -43,5 +43,5 @@ fn main() [hw]
                 field(" y=", m.y)
                 field(" z=", m.z)
                 hal.uart.write("\n")
-            None =>
+            None    =>
                 hal.timer.delay_ms(5)

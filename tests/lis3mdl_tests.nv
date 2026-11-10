@@ -285,7 +285,6 @@ fn spi_read_log(cmd: Int, n: Int) -> [Int]
     list.push(out, -1)
     out
 
-
 // ── The two buses' framing ───────────────────────────────────────────
 
 @test
@@ -424,7 +423,7 @@ fn test_the_identity_is_who_am_i_on_both_buses() [io, hw]
         Some(id) =>
             test.assert_eq(id.who, 0x3D)
             test.assert(id.rev == None)
-        None => test.assert(false)
+        None     => test.assert(false)
     match lis3mdl.id_read(spi_dut(c))
         Some(id) => test.assert_eq(id.who, 0x3D)
         None     => test.assert(false)
