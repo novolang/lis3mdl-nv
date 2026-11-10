@@ -1,0 +1,47 @@
+// device_read — a reading loop for a LIS3MDL on a breakout, for an nRF52840
+// DK or an nRF54LM20 DK.
+//
+// The breakout's SDA and SCL go to the board's I2C pins and its SDO/SA1
+// pin to ground, which puts the part at 0x1C; DRDY goes to a free GPIO, if
+// the program is to read the data-ready line.  The program brings the part
+// up at ±4 gauss in ultra-high performance at 10 Hz and prints one line
+// per sample over RTT:
+//
+//     lis3mdl x=<nT> y=<nT> z=<nT>
+//
+// The Earth's field at the surface is between about 25 000 and 65 000 nT,
+// so the three axes together read about that much.
+//
+// Build it with `novo build --target=nrf52840-dk tests/device_read.nv` or
+// `novo build --target=nrf54lm20-dk tests/device_read.nv`.
+
+use embedded_hal.{ BoardI2c, BoardGpio }
+use dev_bus
+use dev_mag.{ MagNanoT, Magnetometer }
+use lis3mdl
+use lis3mdl.{ Lis3mdl }
+
+// The part's address with SDO/SA1 low.
+const ADDR = 0x1C
+
+// A label and a number, written without building a string.
+fn field(label: Str, v: Int) [hw]
+    hal.uart.write(label)
+    hal.uart.write(str.from_int(v))
+
+@tier(embedded)
+fn main() [hw]
+    let part = Lis3mdl.attach(BoardI2c { id: 0 }, BoardGpio { id: 0 }, dev_bus.wiring_i2c(0, ADDR))
+    if not part.begin()
+        hal.uart.write("lis3mdl: no answer\n")
+        return
+    loop
+        match part.mag_read_new()
+            Some(m) =>
+                hal.uart.write("lis3mdl")
+                field(" x=", m.x)
+                field(" y=", m.y)
+                field(" z=", m.z)
+                hal.uart.write("\n")
+            None =>
+                hal.timer.delay_ms(5)
