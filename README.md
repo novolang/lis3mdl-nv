@@ -159,7 +159,7 @@ writes the wrong way round.
 
 | Module | What is in it |
 |---|---|
-| `lis3mdl` | The types `Lis3mdl` (I2C) and `Lis3mdlSpi` (SPI), `Lis3mdlRange`, `Lis3mdlPerf` and `Lis3mdlPower`, the trait `Lis3mdlPort`, the bus framing, the register access, the conversions, the self-test and the bring-up |
+| `lis3mdl` | The types `Lis3mdl` (I2C) and `Lis3mdlSpi` (SPI), `Lis3mdlRange`, `Lis3mdlPerf` and `Lis3mdlPower`, the trait `Lis3mdlPort` over devices-nv's `RegPort`, the bus framing, the register access, the conversions, the self-test and the bring-up |
 
 ## How to choose an entry point
 
@@ -191,7 +191,7 @@ once so that DRDY starts low.  It answers `false` for a part that does
 not answer 0x3D and for a register that does not hold what was written.
 
 A program that holds its own bus, or a test with a double of the part,
-implements `Lis3mdlPort` over its bus and calls the module's functions,
+implements devices-nv's `RegPort` (`read_regs` and `write_reg`; the register reads and read-modify-writes, `port.read_reg(reg)` and `port.update_reg_verified(reg, mask, bits)`, are its methods) and `Lis3mdlPort` over its bus and calls the module's functions,
 which take the port: `lis3mdl.sample_read(port)`, `lis3mdl.start(port)`.
 The framing of each bus is `i2c_read_into`, `i2c_write`, `spi_read_into`
 and `spi_write`, generic over `I2cBus` and `SpiBus`.

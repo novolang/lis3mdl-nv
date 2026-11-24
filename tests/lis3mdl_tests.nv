@@ -12,7 +12,7 @@
 
 use std.test
 use embedded_hal.{ BoardI2c, BoardSpi, BoardGpio, I2cBus, SpiBus, GpioOut }
-use dev_bus.{ DeviceWiring, DevBytes }
+use dev_bus.{ DeviceWiring, DevBytes, RegPort }
 use dev_mag.{ MagNanoT, Magnetometer }
 use dev_id.{ DeviceId, Identifiable }
 use lis3mdl
@@ -194,15 +194,16 @@ struct I2cDut
     pins: FakePins
     w: DeviceWiring
 
-impl Lis3mdlPort for I2cDut
-    fn setup(self) -> Bool [hw]
-        lis3mdl.i2c_setup(self.bus, self.pins, self.w)
-
+impl RegPort for I2cDut
     fn read_regs(self, reg: Int, n: Int, var dst: DevBytes) -> Bool [hw]
         lis3mdl.i2c_read_into(self.bus, self.w, reg, n, var dst)
 
     fn write_reg(self, reg: Int, v: Int) -> Bool [hw]
         lis3mdl.i2c_write(self.bus, self.w, reg, v)
+
+impl Lis3mdlPort for I2cDut
+    fn setup(self) -> Bool [hw]
+        lis3mdl.i2c_setup(self.bus, self.pins, self.w)
 
     fn irq_level(self) -> Int [hw]
         lis3mdl.irq_level_of(self.pins, self.w)
@@ -212,15 +213,16 @@ struct SpiDut
     pins: FakePins
     w: DeviceWiring
 
-impl Lis3mdlPort for SpiDut
-    fn setup(self) -> Bool [hw]
-        lis3mdl.spi_setup(self.bus, self.pins, self.w)
-
+impl RegPort for SpiDut
     fn read_regs(self, reg: Int, n: Int, var dst: DevBytes) -> Bool [hw]
         lis3mdl.spi_read_into(self.bus, self.pins, self.w, reg, n, var dst)
 
     fn write_reg(self, reg: Int, v: Int) -> Bool [hw]
         lis3mdl.spi_write(self.bus, self.pins, self.w, reg, v)
+
+impl Lis3mdlPort for SpiDut
+    fn setup(self) -> Bool [hw]
+        lis3mdl.spi_setup(self.bus, self.pins, self.w)
 
     fn irq_level(self) -> Int [hw]
         lis3mdl.irq_level_of(self.pins, self.w)
@@ -291,7 +293,7 @@ fn spi_read_log(cmd: Int, n: Int) -> [Int]
 fn test_an_i2c_read_of_one_register_sends_the_bare_sub_address() [io, hw]
     let c = chip()
     let d = i2c_dut(c)
-    test.assert_eq(lis3mdl.reg_read(d, 0x0F) ?? -1, 0x3D)
+    test.assert_eq(d.read_reg(0x0F) ?? -1, 0x3D)
     log_is(c, [2, 0x1C, 0x0F, 1, -1])
 
 @test
@@ -319,16 +321,16 @@ fn test_a_missing_i2c_part_does_not_answer() [io, hw]
     let c = chip()
     c.st.insert(4, 0)
     let d = i2c_dut(c)
-    test.assert(lis3mdl.reg_read(d, 0x0F) == None)
+    test.assert(d.read_reg(0x0F) == None)
     test.assert(not d.write_reg(0x21, 0x40))
-    test.assert(not lis3mdl.reg_write(d, 0x21, 0x40))
+    test.assert(not d.write_reg_verified(0x21, 0x40))
     test.assert(lis3mdl.id_read(d) == None)
 
 @test
 fn test_an_spi_read_sets_rw_and_one_register_does_not_increment() [io, hw]
     let c = chip()
     let d = spi_dut(c)
-    test.assert_eq(lis3mdl.reg_read(d, 0x0F) ?? -1, 0x3D)
+    test.assert_eq(d.read_reg(0x0F) ?? -1, 0x3D)
     log_is(c, [3, 0x8F, 0xFF, -1])
     test.assert_eq(at(d.pins.levels, 67), 1)
 
@@ -359,7 +361,7 @@ fn test_an_spi_part_that_is_not_there_reads_0xff_and_is_no_part() [io, hw]
     let c = chip()
     c.st.insert(4, 0)
     let d = spi_dut(c)
-    test.assert_eq(lis3mdl.reg_read(d, 0x0F) ?? -1, 0xFF)
+    test.assert_eq(d.read_reg(0x0F) ?? -1, 0xFF)
     test.assert(lis3mdl.id_read(d) == None)
     c.st.insert(4, 1)
     c.regs.insert(0x0F, 0)
@@ -616,15 +618,15 @@ fn test_an_update_changes_only_the_bits_of_its_mask() [io, hw]
     let c = chip()
     let d = i2c_dut(c)
     c.regs.insert(0x24, 0x0C)
-    test.assert(lis3mdl.reg_update(d, 0x24, 0x40, 0x40))
+    test.assert(d.update_reg_verified(0x24, 0x40, 0x40))
     test.assert_eq(reg_of(c, 0x24), 0x4C)
-    test.assert(lis3mdl.reg_update(d, 0x24, 0x04, 0x00))
+    test.assert(d.update_reg_verified(0x24, 0x04, 0x00))
     test.assert_eq(reg_of(c, 0x24), 0x48)
     // Bits outside the mask are not taken from the new value.
-    test.assert(lis3mdl.reg_update(d, 0x24, 0x08, 0xFF))
+    test.assert(d.update_reg_verified(0x24, 0x08, 0xFF))
     test.assert_eq(reg_of(c, 0x24), 0x48)
     c.st.insert(4, 0)
-    test.assert(not lis3mdl.reg_update(d, 0x24, 0x40, 0x40))
+    test.assert(not d.update_reg_verified(0x24, 0x40, 0x40))
 
 @test
 fn test_a_register_that_ignores_the_write_is_not_taken() [io, hw]
@@ -632,7 +634,7 @@ fn test_a_register_that_ignores_the_write_is_not_taken() [io, hw]
     let d = i2c_dut(c)
     c.ro.insert(0x21, 1)
     test.assert(not lis3mdl.range_write(d, Lis3mdlRange.Lis3mdlRange16g))
-    test.assert(not lis3mdl.reg_write(d, 0x21, 0x30))
+    test.assert(not d.write_reg_verified(0x21, 0x30))
 
 @test
 fn test_the_performance_mode_is_written_to_om_and_omz_together() [io, hw]
@@ -864,10 +866,7 @@ struct FlagAfter
     inner: I2cDut
     ready: HashMap<Int, Int>
 
-impl Lis3mdlPort for FlagAfter
-    fn setup(self) -> Bool [hw]
-        self.inner.setup()
-
+impl RegPort for FlagAfter
     fn read_regs(self, reg: Int, n: Int, var dst: DevBytes) -> Bool [hw]
         let ok = self.inner.read_regs(reg, n, var dst)
         if reg == 0x27 and n == 1
@@ -880,6 +879,10 @@ impl Lis3mdlPort for FlagAfter
 
     fn write_reg(self, reg: Int, v: Int) -> Bool [hw]
         self.inner.write_reg(reg, v)
+
+impl Lis3mdlPort for FlagAfter
+    fn setup(self) -> Bool [hw]
+        self.inner.setup()
 
     fn irq_level(self) -> Int [hw]
         self.inner.irq_level()
@@ -952,3 +955,13 @@ fn test_the_spi_type_over_absent_hardware() [io, hw]
     test.assert(not p.mag_ready())
     test.assert_eq(p.mag_rate_hz(), 0)
     test.assert(p.device_id() == None)
+
+// ── The functions that the register methods replace ──────────────────
+
+@test
+fn test_the_deprecated_register_functions_answer_as_the_methods_do() [io, hw]
+    let c = chip()
+    let d = i2c_dut(c)
+    test.assert_eq(lis3mdl.reg_read(d, 0x0F), d.read_reg(0x0F))
+    test.assert_eq(lis3mdl.reg_write(d, 0x0F, 0x01), d.write_reg_verified(0x0F, 0x01))
+    test.assert_eq(lis3mdl.reg_update(d, 0x0F, 0x0F, 0x01), d.update_reg_verified(0x0F, 0x0F, 0x01))
